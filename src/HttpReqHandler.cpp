@@ -3,6 +3,7 @@
 #include <iostream>
 #include <ctemplate/template.h>
 #include <cstdlib>
+#include <boost/foreach.hpp>
 
 namespace unichannel {
 
@@ -44,6 +45,14 @@ namespace unichannel {
         }
         return true;
     }
+    
+    void HttpReqHandler::addStat(LatencyStat::Ptr stat) {
+        {
+            boost::unique_lock<boost::mutex> lock(statQMutex_);
+            statQ_.push(stat);
+            // No need to notify as no one will be waiting on it [ Based upon Req/response logic ]
+        }
+    }
 
     void HttpReqHandler::handle_request(const HttpRequest& req, HttpReply& rep) {
         // Decode url to path.
@@ -71,7 +80,7 @@ namespace unichannel {
             // Using ctemplates
             ctemplate::TemplateDictionary rootDict("example");
             rootDict.SetValue("TITLE", "HTML Page from CTemplates");
-            rootDict.SetValue("UPDATEINTERVAL", "500");
+            rootDict.SetValue("UPDATEINTERVAL", "1000");
 
             // Set CSS Files
             //            ctemplate::TemplateDictionary* sectionCSSDict1 = rootDict.AddSectionDictionary("CSS");
@@ -95,7 +104,7 @@ namespace unichannel {
 
             rep.status_ = HttpReply::ok;
 
-            rep.content_ = "[[883612800000,4.58],[886291200000,5.91],[888710400000,1.91],[891388800000,8.91]]";
+            rep.content_ = "[[873612800000,4.58],[876291200000,5.91],[878710400000,1.91],[879388800000,8.91]]";
 
             extension = "html";
 
@@ -105,7 +114,7 @@ namespace unichannel {
 
             rep.status_ = HttpReply::ok;
 
-            rep.content_ = getLatestPoint(); // "[896669200000,4.58]";
+            rep.content_ =  getLatestPoint() ; // "[896669200000,4.58]";
 
             extension = "html";
 
@@ -149,22 +158,34 @@ namespace unichannel {
     }
 
     std::string HttpReqHandler::getLatestPoint() {
-        static long long dateTime = 896669200000;
-        static int count = 20;
-
-        ++count;
-
-        int value = rand() % 10; // random num between 0 and 9
+//        static long long dateTime = 896669200000;
+//        static int count = 20;
+//
+//        ++count;
+//
+//        int value = rand() % 10; // random num between 0 and 9
+//        
+//        std::stringstream str;
+//
+//        if (value == 4) {
+//            
+//            str << "[" << (dateTime + (100000 * count)) << "," << value << "]";
+//            std::cout << " New Point : " << str.str() << std::endl;
+//            
+//        }
         
+        LatencyStat::Ptr stat ;
         std::stringstream str;
-
-        if (value == 4) {
-            
-            str << "[" << (dateTime + (100000 * count)) << "," << value << "]";
-            std::cout << " New Point : " << str.str() << std::endl;
-            
+        {
+            boost::unique_lock<boost::mutex> lock(statQMutex_);
+            if(statQ_.size() > 0){
+                stat = statQ_.front() ;
+                statQ_.pop();
+                str << "[" << stat->getDateTime() << "," << stat->getLatencyInMicro() << "]";
+            }
         }
         
+        std::cout << " New Point in Graph: " << str.str() << std::endl;
         return str.str();
 
 

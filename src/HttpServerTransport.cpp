@@ -2,16 +2,19 @@
 #include <iostream>
 #include <signal.h>
 #include <utility>
+#include <boost/thread/detail/thread.hpp>
 
 namespace unichannel {
 
-    HttpServerTransport::HttpServerTransport(const std::string& port, const std::string& docRoot) :
+    HttpServerTransport::HttpServerTransport(const std::string& port, LatencyStatManager::Ptr statManager, const std::string& docRoot) :
     serverPort_(port),
     ioService_(),
     acceptor_(ioService_),
     socket_(ioService_),
     signals_(ioService_),
-    reqHandler_(docRoot) {
+    reqHandler_(new HttpReqHandler(docRoot)),
+    statManager_(statManager),
+    isAlive_(false) {
         // Open the acceptor with the option to reuse the address (i.e. SO_REUSEADDR).
         boost::asio::ip::tcp::resolver resolver(ioService_);
         boost::asio::ip::tcp::endpoint endpoint = *resolver.resolve({"127.0.0.1", serverPort_});
@@ -30,6 +33,8 @@ namespace unichannel {
 #endif // defined(SIGQUIT)
 
         do_await_stop();
+        
+        statManager_->setReqHandler(reqHandler_);
 
         do_accept();
     }
@@ -41,8 +46,7 @@ namespace unichannel {
                     // operations. Once all operations have finished the io_service::run()
                     // call will exit.
                     std::cout << " Signal Comes: " << signo << std::endl;
-                    acceptor_.close();
-                            clientConnManager_.stop_all();
+                    stop();
                 });
     }
 
@@ -52,7 +56,7 @@ namespace unichannel {
 
         acceptor_.async_accept(socket_, [this](boost::system::error_code ec) {
             if (!acceptor_.is_open()) {
-                std::cout << " Acceptor is not open to accept ant new connection. " << std::endl;
+                std::cout << " Acceptor is not open to accept any new connection. " << std::endl;
                 return;
             }
 
@@ -72,13 +76,36 @@ namespace unichannel {
     }
 
     void HttpServerTransport::start() {
-        ioService_.run();
+        {
+            boost::unique_lock<boost::mutex> lock(startStopMutex_);
+            isAlive_ = true;
+        }
+
+        ioServiceRunThread_ = boost::shared_ptr<boost::thread>(new boost::thread(&HttpServerTransport::runIoService, this));
     }
 
     void HttpServerTransport::stop() {
+
+        {
+            boost::unique_lock<boost::mutex> lock(startStopMutex_);
+            isAlive_ = false;
+        }
+
+        ioServiceRunThread_->interrupt();
+
+        std::cout << " Stopped IoServceRun Thread. Now Closing Acceptor. " << std::endl;
+
         if (acceptor_.is_open()) {
             acceptor_.close();
         }
+
+        clientConnManager_.stop_all();
+    }
+
+    void HttpServerTransport::runIoService() {
+        std::cout << " Starting IoServceRun Thread. " << std::endl;
+        ioService_.run();
+        std::cout << " Stopping IoServceRun Thread. " << std::endl;
     }
 
 }

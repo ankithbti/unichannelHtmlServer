@@ -29,7 +29,7 @@ namespace unichannel {
         HttpReply reply_ ;
         std::string clientId_ ;
         HttpClientConnectionManager& manager_ ;
-        HttpReqHandler& reqHandler_ ;
+        HttpReqHandler::Ptr reqHandler_ ;
         
 
         /// Perform an asynchronous read operation.
@@ -42,7 +42,7 @@ namespace unichannel {
 
         typedef boost::shared_ptr<HttpClientConnection> Ptr;
 
-        HttpClientConnection(boost::asio::ip::tcp::socket socket, HttpClientConnectionManager& manager, HttpReqHandler& reqHanlder) ;
+        HttpClientConnection(boost::asio::ip::tcp::socket socket, HttpClientConnectionManager& manager, HttpReqHandler::Ptr reqHanlder) ;
 
         void start();
         void stop();

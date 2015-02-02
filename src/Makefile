@@ -13,7 +13,7 @@ OF_EXTRA_INCLUDE_ROOT=/home/dev/Downloads/of_v0.8.4_linux64_release/libs
 XMLPARSER_ROOT=/home/dev/svnProjects/myproject/xmlParserApi
 CTEMPLATES_ROOT=/home/dev/ctemplates
 
-SRCS= HttpReqHandler.cpp ChannelTest.cpp Transport.cpp HttpReply.cpp HttpReqParser.cpp HttpServerTransport.cpp HttpClientConnectionManager.cpp HttpClientConnection.cpp 
+SRCS= LatencyStatManager.cpp HttpReqHandler.cpp ChannelTest.cpp Transport.cpp HttpReply.cpp HttpReqParser.cpp HttpServerTransport.cpp HttpClientConnectionManager.cpp HttpClientConnection.cpp 
 
 OBJS = $(patsubst %.cpp, %.o, $(SRCS))
 
